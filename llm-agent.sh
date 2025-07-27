@@ -27,7 +27,7 @@ COST_OUT=${COST_OUT:-0.008}
 #COST_IN=${COST_IN:-0.00015}
 #COST_OUT=${COST_OUT:-0.00030}
 
-LOG_DIR="$(date '+%Y-%m-%d_%H:%M:%S')"
+LOG_DIR="logs/$(date '+%Y-%m-%d_%H:%M:%S')"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/llm-agent.log"
 
