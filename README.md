@@ -32,8 +32,8 @@ git clone https://github.com/your‑org/AutoBashLLM.git
 cd AutoBashLLM
 chmod +x llm-agent.sh
 
-# export your key once per shell
-export OPENAI_API_KEY="sk‑…"
+# print your openAi API key into openai.key
+nano openai.key
 
 # run a sample task
-./llm-agent.sh "Create a Python venv, install pandas, print its version"
+./llm-agent.sh "Investigate if any suspicious software is spying on my system"

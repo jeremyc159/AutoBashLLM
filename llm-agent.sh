@@ -46,7 +46,7 @@ fi
 USER_PROMPT="$1"
 
 # Log the initial user prompt
-echo "$(date '+%Y-%m-%d %H:%M:%S') - User Prompt:\n$USER_PROMPT" >> "$LOG_FILE"
+echo -e "$(date '+%Y-%m-%d %H:%M:%S') - User Prompt:\n$USER_PROMPT" >> "$LOG_FILE"
 
 ############################################
 # Build the *static* part of the conversation
@@ -149,7 +149,7 @@ for (( turn=1; turn<=MAX_TURNS; turn++ )); do
   echo -e "??  Tokens prompt: $prompt_tokens  · completion: $completion_tokens  · total: $total_tokens"
   echo -e "??  Estimated cost this turn: \$${turn_cost}"
 
-  echo "$(date '+%Y-%m-%d %H:%M:%S') - LLM Answer (\$${turn_cost}):\n" >> "$LOG_FILE"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - LLM Answer (\$${turn_cost}):" >> "$LOG_FILE"
 
   content="$(echo "$resp_json" | jq -r '.choices[0].message.content')"
   echo -e "?? Raw LLM response:\n$content"
@@ -176,7 +176,7 @@ for (( turn=1; turn<=MAX_TURNS; turn++ )); do
           if [[ "$SAFE_MODE" -eq 1 ]]; then
             read -p "Press enter to RUN"
           fi
-          echo "$CMD_RUN_INDEX\t$cmd\n" >> "$LOG_FILE"
+          echo -e "$CMD_RUN_INDEX\t$cmd" >> "$LOG_FILE"
 
           if out="$(bash -c "$cmd" 2>&1)"; then
              echo "? Success"; echo "$out"
@@ -200,10 +200,14 @@ for (( turn=1; turn<=MAX_TURNS; turn++ )); do
         ;;
     complete)
         echo -e "\n?? LLM signalled completion:\n$(echo "$content" | jq -r '.explanation')"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - LLM signalled completion:" >> "$LOG_FILE"
+        echo "$content" >> "$LOG_FILE"
         exit 0
         ;;
     error)
         echo -e "\n? LLM reported an error:\n$(echo "$content" | jq -r '.explanation')"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - LLM signalled an error:" >> "$LOG_FILE"
+        echo "$content" >> "$LOG_FILE"
         exit 1
         ;;
     *)
@@ -213,4 +217,5 @@ for (( turn=1; turn<=MAX_TURNS; turn++ )); do
 done
 
 echo -e "\n? Reached max turns ($MAX_TURNS) without success."
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Reached max turns ($MAX_TURNS) without success." >> "$LOG_FILE"
 exit 1
