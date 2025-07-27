@@ -5,18 +5,21 @@
 set -euo pipefail
 
 ############################################
-# Config � adapt to taste
+# Config
 ############################################
 
 MODEL="${OPENAI_MODEL:-o3-2025-04-16}"
 TEMPERATURE=0.3
 MAX_TURNS=20                                # Stop if the LLM goes in circles ??
 TOKENS_PER_CMD_LIST=12000                   # Truncate large command lists
-OPENAI_API_KEY="sk-my-service-account-......." # Replace by your own openAi API Key
+OPENAI_API_KEY="$(cat openai.key 2>/dev/null || echo '')"
+SAFE_MODE=1 # If 1 Each command will require user confirmation before execution. If 0, commands will be executed automatically.
+
+CMD_RUN_INDEX=1
 
 # o3-2025-04-16 standard pricing (Apr-2025):
-#   input  $2.00 / 1M tokens  ?  $0.002  per 1 K
-#   output $8.00 / 1M tokens  ?  $0.008  per 1 K
+#   input  $2.00 / 1M tokens  ?  $0.002  per 1K
+#   output $8.00 / 1M tokens  ?  $0.008  per 1K
 COST_IN=${COST_IN:-0.002}
 COST_OUT=${COST_OUT:-0.008}
 
@@ -24,6 +27,9 @@ COST_OUT=${COST_OUT:-0.008}
 #COST_IN=${COST_IN:-0.00015}
 #COST_OUT=${COST_OUT:-0.00030}
 
+LOG_DIR="$(date '+%Y-%m-%d_%H:%M:%S')"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/llm-agent.log"
 
 case "$MODEL" in
   o3-* ) TEMPERATURE_ENFORCED_DEFAULT=true ;;
@@ -38,6 +44,9 @@ if [[ $# -lt 1 ]]; then
   echo "Usage: $0 \"<user goal prompt>\""; exit 1
 fi
 USER_PROMPT="$1"
+
+# Log the initial user prompt
+echo "$(date '+%Y-%m-%d %H:%M:%S') - User Prompt:\n$USER_PROMPT" >> "$LOG_FILE"
 
 ############################################
 # Build the *static* part of the conversation
@@ -58,12 +67,13 @@ EOF
 SYSTEM_PROMPT_FORMAT="$(cat <<'EOF'
 <<<SYSTEM-FORMAT>>>
 Always answer with **valid JSON** following this schema *exactly*:
-{
+`{
   "action": "run" | "complete" | "error",
   "commands": ["...","..."],   // required only when action=="run"
   "explanation": "short human-readable comment"
-}
+}`
 No additional keys, no prose outside JSON.
+Each string in the commands list will be a one line bash command that can be executed independantly of the others, and will be automatically executed on the system through bash invokation.
 EOF
 )"
 
@@ -122,7 +132,7 @@ for (( turn=1; turn<=MAX_TURNS; turn++ )); do
 
   # Make sure we actually received a chat message
   if ! jq -e '.choices[0].message.content' <<<"$resp_json" >/dev/null 2>&1; then
-    echo "? Unexpected API payload � no assistant message found."
+    echo "? Unexpected API payload no assistant message found."
     echo "??  Full JSON for inspection:"
     echo "$resp_json" | jq   # pretty-print for readability
     exit 1
@@ -136,8 +146,10 @@ for (( turn=1; turn<=MAX_TURNS; turn++ )); do
                  -v ci="$COST_IN"      -v co="$COST_OUT" \
     'BEGIN { printf "%.6f", (pin*ci + pout*co)/1000 }')
 
-  echo -e "??  Tokens � prompt: $prompt_tokens  · completion: $completion_tokens  · total: $total_tokens"
+  echo -e "??  Tokens prompt: $prompt_tokens  · completion: $completion_tokens  · total: $total_tokens"
   echo -e "??  Estimated cost this turn: \$${turn_cost}"
+
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - LLM Answer (\$${turn_cost}):\n" >> "$LOG_FILE"
 
   content="$(echo "$resp_json" | jq -r '.choices[0].message.content')"
   echo -e "?? Raw LLM response:\n$content"
@@ -161,13 +173,21 @@ for (( turn=1; turn<=MAX_TURNS; turn++ )); do
         for cmd in "${cmd_arr[@]}"; do
           echo -e "\n?? Running: $cmd"
 
-          read -p "Press enter to continue"
+          if [[ "$SAFE_MODE" -eq 1 ]]; then
+            read -p "Press enter to RUN"
+          fi
+          echo "$CMD_RUN_INDEX\t$cmd\n" >> "$LOG_FILE"
 
           if out="$(bash -c "$cmd" 2>&1)"; then
              echo "? Success"; echo "$out"
           else
              echo "??  Command exited with status $?"; echo "$out"
           fi
+
+          echo "$out" >> "$LOG_DIR/$CMD_RUN_INDEX.txt"
+          CMD_RUN_INDEX=$((CMD_RUN_INDEX + 1))
+
+
           # Build JSON snippet for the tool message
           tool_report="$(jq -n --arg c "$cmd" --arg o "$out" \
                        '.command=$c | .output=$o')"$'\n'"$tool_report"
