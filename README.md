@@ -1,8 +1,6 @@
 # AutoBashLLM 🤖🖥️  
 *A fully‑scripted Bash agent that lets a Large‑Language‑Model drive your terminal.*
 
-![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
-
 ---
 
 ## ✨ What it does
