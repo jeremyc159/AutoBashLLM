@@ -7,7 +7,7 @@
 AutoBashLLM turns ChatGPT (or another OpenAI‑compatible model) into an *interactive automation engine*:
 
 1. You give the script a single **goal prompt** – e.g.  
-   `./llm-agent.sh "Install VLC player on my Ubuntu"`
+   `bash gpt5.sh "Install VLC player on my Ubuntu"`
 2. It sends that goal, a safety‑oriented system prompt, and the list of
    available commands to the model.
 3. The model replies with a JSON plan (`"action":"run"` + array of shell
@@ -28,10 +28,10 @@ AutoBashLLM turns ChatGPT (or another OpenAI‑compatible model) into an *intera
 ```bash
 git clone https://github.com/your‑org/AutoBashLLM.git
 cd AutoBashLLM
-chmod +x llm-agent.sh
+chmod +x gpt5.sh
 
 # print your openAi API key into openai.key
 nano openai.key
 
 # run a sample task
-./llm-agent.sh "Investigate if any suspicious software is spying on my system"
+bash gpt5.sh "Investigate if any suspicious software is spying on my system"
